@@ -1,4 +1,4 @@
-This R project gathers all the data and R code needed to reproduce simulations and results analysis that are presented in the paper untitled "Overlooked implications of dispersal in Atlantic salmon: lessons from a demo-genetic agent-based model".
+This R project gathers all the data and R code needed to reproduce simulations and results analysis that are presented in the paper untitled "Implications of dispersal in Atlantic salmon: lessons from a demo-genetic agent-based model".
 
 It is the first application study using MetaIBASAM, a demo-genetic agent-based model to simulate spatially structured salmon populations.
 
