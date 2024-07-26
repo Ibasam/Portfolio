@@ -1,0 +1,260 @@
+---
+title: "TradeOff_survival_growth"
+author: "Amaïa Lamarins"
+date: "1/29/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Growth-survival trade-off
+
+A growth survival trade-off have been implemented by J. Papaïx to limit individual growth. There is the possibility to parametrize it in river as well as in sea, but only the river one has been adjusted.
+
+Here is the trend of the trade-off in river:
+
+```{r, echo=FALSE}
+
+pow <- function(x,y) {x^y}
+
+coefSURV=function(pGres, kappaRIV, sigRIV) {(exp(-kappaRIV*pow(pGres,sigRIV))-exp(-kappaRIV))/(1-exp(-kappaRIV))}
+
+# trade_off
+maxRIV=5 # maxRIV maximum growth rate, aded for the incorporation of trade-off growth/survival
+sigRIV=3.7 #10 # sigRIV shape of the trade-off function
+kappaRIV=0.001 #921.6 # kappaRIV shape of the trade-off function
+
+# Growth potential
+#pG=sort(rnorm(10000,0,0.25))
+pG=sort(runif(1000,-1,1))
+pGres=exp(pG)/maxRIV;
+pGres=ifelse(pGres>1,1,pGres)
+
+plot(pG,coefSURV(pGres, kappaRIV, sigRIV),type='l',ylab="Survival coefficient",xlab="Growth potential",main="River trade-off",xlim=c(-1,1))
+#lines(pG,coefSURV(pGres, kappaRIV, sigRIV2), col="red", type="l")
+
+
+```
+
+Here is the trend of the trade-off in sea:
+
+```{r, echo=FALSE}
+maxSEA=50 # no trade-off
+sigSEA=100
+kappaSEA=0.001
+
+# Growth potential
+#pG=sort(rnorm(10000,0,0.25))
+pG=sort(runif(1000,-1,1))
+pGres=exp(pG)/maxSEA;
+pGres=ifelse(pGres>1,1,pGres)
+
+# trade_off
+plot(pG,coefSURV(pGres, kappaSEA, sigSEA),type='l',ylab="Survival coefficient",xlab="Growth potential",main="Trade-off at sea")
+
+```
+
+## Toward an optimal value of growth potential
+
+### River growth
+
+With pGsea = pG (correlated)
+
+So there is a disadvantage to have a high growth potential value for river survival, but there is also a size dependent survival in sea and reproductive success. Here we try to show an optimal value should rise from these selective pressures.
+We model the lifetime reproductive success of a range of individuals growth potential values.
+Here are their size after river summer growth:
+
+```{r, echo=FALSE}
+
+####--- PARAMETERS ---###
+
+#Populations parameters of river growth
+b=0.31
+dr=0.5 #0.427 #edit lamarins new environmental conditions
+Tlr=6
+gr=0.208
+Tur=24.5
+bdens=142.7
+lwa=3.804
+lwb=0.32
+ppercfm=0.12
+
+#Trade-off parameters
+#with river trade off
+maxRIV=5 # maxRIV maximum growth rate, aded for the incorporation of trade-off growth/survival
+sigRIV=3.7 #10 # sigRIV shape of the trade-off function
+kappaRIV=0.001 #921.6 # kappaRIV shape of the trade-off function
+#without river trade off
+maxRIV2=50
+sigRIV2=100
+kappaRIV2=0.001
+
+#Sea growth parameters
+kg=0.003057
+wmax=8500
+lwa_sea=3.82568
+lwb_sea=0.333779
+alphaS=2.533333
+betaS=-0.524
+
+#Fecundity parameters
+aNegg = 0.86
+bNegg = 1.63
+
+# Survival in River
+SP0=0.9841606*1.0025 #edit buoro
+SP1=0.9914398*1.0025 #edit buoro
+SP1S=0.9967923*1.002
+SP1M=0.9863295*1.002
+SPnM=0.9911798*1.002
+SPn=0.99775*1.002
+
+####---- Model fitness for a range of pG values (pG = pGsea) - trade-off in river only ----###
+
+#1. ind born 1st april
+
+n=1000
+#pG=sort(rnorm(n,0,0.25)) ##careful here gG #if range of pG:sort(rnorm(100000,0,(0.2/sqrt(0.14))))
+pG=sort(runif(n,-1,1))
+#pG=sort(rnorm(100000,0.15,0.2)) ##careful here gG #if range of
+pGres=exp(pG)/maxRIV;
+pGres=ifelse(pGres>1,1,pGres)
+
+pGres2=exp(pG)/maxRIV2;
+pGres2=ifelse(pGres2>1,1,pGres2)
+
+winit=rep(0.1,n) #initial weight
+linit=rep(0.1,n) #initial length
+fatinit=rep(0.1,n) #initial fat reserves
+
+#2. river growth april-october
+
+nb_days = 183
+#nb_days = 220 #increase nb days because optimum 0.1 instead of 0 (because we missed parr 1+ ? that would stay longer in river and present the higher differences in term of trade-off survival ...)
+omega=sum(rep(dr*(15-Tlr)*(1-exp(gr*(15-Tur))), nb_days)) #temperature effect #15 
+denseffect=.6 #density effect (adjusted here)
+activity=exp(pG) #activity effect - summer:1
+#for (t in 1:183) {
+  w_parr= (winit^b + b*omega*activity*denseffect/100)^(1/b)
+  fat_parr = fatinit + (w_parr-winit)*0.2 
+  l_parr = exp(lwa+lwb*log((w_parr-fat_parr)/(1-ppercfm)))
+#}#find correct weight in october in simul
+plot(w_parr~pG,type='l', xlab="pG",ylab="weight after summer")
+plot(fat_parr~pG,type='l', xlab="pG",ylab="fat after summer")
+plot(l_parr~pG,type='l', xlab="pG",ylab="size after summer")
+```
+
+### River survival
+
+Here is their survival rate after summer (with growth-survival trade-off):
+```{r, echo=FALSE}
+
+#3. survival april-october
+
+P_survival_parr=pow(SP0*coefSURV(pGres, kappaRIV, sigRIV),nb_days);
+P_survival_parr2=pow(SP02*coefSURV(pGres2, kappaRIV2, sigRIV2),nb_days);
+
+plot(pG,P_survival_parr,type='l',ylab="Survival",xlab="Growth potential",main="Survival summer")
+lines(pG,P_survival_parr2, col="red")
+legend("bottomright", cex=.8, legend=c("With TO","Without TO"), border=NA,fill=c("black","red"), bty="n")
+```
+
+Then, parr decide to migrate to sea next summer and here are their size after winter (before migration):
+```{r, echo=FALSE}
+#4. growth november-april with decision to migrate to sea
+
+#omega=dr*(15-Tlr)*(1-exp(gr*(15-Tur)))
+omega=sum(rep(dr*(11-Tlr)*(1-exp(gr*(11-Tur))),nb_days))
+denseffect=.6
+activity=exp(pG)*0.725 #smolt
+#for (t in 1:183) {
+w_smolt= (w_parr^b + b*omega*activity*denseffect/100)^(1/b)
+fat_smolt = fat_parr + (w_smolt-w_parr)*0
+l_smolt = exp(lwa+lwb*log((w_smolt-fat_smolt)/(1-ppercfm)))
+#}#find correct weight in october in simul
+plot(w_smolt~pG,type='l', xlab="pG",ylab="weight after winter")
+plot(fat_smolt~pG,type='l', xlab="pG",ylab="fat after winter")
+plot(l_smolt~pG,type='l', xlab="pG",ylab="size after winter")
+```
+
+And their survival rate after winter:
+```{r, echo=FALSE}
+P_survival_smolt=pow(SP1S*coefSURV(pGres, kappaRIV, sigRIV),nb_days);
+P_survival_smolt2=pow(SP1S2*coefSURV(pGres2, kappaRIV2, sigRIV2),nb_days);
+
+plot(pG,P_survival_smolt,type='l',ylab="Survival",xlab="Growth potential",main="Survival winter")
+lines(pG,P_survival_smolt2,col="red")
+legend("bottomright", cex=.8, legend=c("With TO","Without TO"), border=NA,fill=c("black","red"), bty="n")
+```
+
+So over the 1st year in river, the relationship between growth potential and river survival rate is:
+```{r, echo=FALSE}
+P_survival_river = P_survival_parr*P_survival_smolt
+P_survival_river2 = P_survival_parr2*P_survival_smolt2
+
+plot(pG,P_survival_river,type='l',ylab="Survival rate",xlab="Growth potential",main="Survival after one year in river")
+lines(pG,P_survival_river2,col="red")
+legend("bottomright", cex=.8, legend=c("With TO","Without TO"), border=NA,fill=c("black","red"), bty="n")
+
+```
+
+### Sea growth and survival
+
+Then, fish migrate to sea and can spend around 1 year to grow there:
+```{r, echo=FALSE}
+#5. sea growth
+
+w_previous= w_smolt
+fat_previous= fat_smolt
+SP_sea = 1
+for (t in 1:(365)) {
+  w_sea= w_previous + (kg * w_previous * log(exp(pG) * wmax / w_previous)*1) 
+  fat_sea = fat_previous + (w_sea-w_previous)*0.15
+  l_sea = exp(lwa_sea+lwb_sea*log((w_sea-fat_sea)/(1-ppercfm)))
+  w_previous = w_sea
+  fat_previous = fat_sea
+  SP_sea = SP_sea * (1 - alphaS*(l_sea/exp(lwa_sea))^(betaS/lwb_sea))^(1/30) #no tradeoff in sea
+  
+}
+plot(w_sea~pG,type='l', xlab="pG",ylab="weight after winter")
+plot(fat_sea~pG,type='l', xlab="pG",ylab="fat after winter")
+plot(l_sea~pG,type='l', xlab="pG",ylab="size after winter")
+```
+
+Survival in sea is dependent of the size and here is the relationship with individual growth potential:
+```{r, echo=FALSE}
+#sea survival
+SP_sea[SP_sea=="NaN"]<-0
+plot(pG,SP_sea,type='l',ylab="Survival rate",xlab="Growth potential",main='Survival after one year in sea')
+```
+
+### Reproductive success
+
+Finally, if we consider females returning to river to breed, their eggs number produced depend on their weight and here is the relationship with individual growth potential:
+```{r, echo=FALSE}
+#6. Neggs considering all female reproduce
+
+neggs = exp(aNegg * log(w_sea) + bNegg)
+plot(pG,neggs,type='l',ylab="Neggs",xlab="Growth potential",main="Eggs number by female")
+```
+
+### Fitness
+
+```{r, echo=FALSE}
+#total fitness
+fitness= P_survival_river * SP_sea * neggs
+fitness2= P_survival_river2 * SP_sea * neggs
+
+## FIGURE 2 A ##
+plot(NULL,ylab="LRS (Lifetime Recruitment Success)",xlab="Growth potential", xlim=c(-1,1), ylim=c(0,5))
+lines(pG[1:6000],fitness2[1:6000], lty=2, lwd=3)
+lines(pG,fitness,lwd=3, lty=1)
+
+legend("topright", cex=.8, legend=c("With Trade-off","Without Trade-off"), border=NA,lty=c(1,2), bty="n")
+
+```
+
+
+
